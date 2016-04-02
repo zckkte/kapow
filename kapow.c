@@ -5,34 +5,35 @@
  */
 
 #include    "stdio.h"
+#include    "stdlib.h"
 #include    "string.h"
 #include    "unistd.h"
 #include    "ctype.h"
 
 #define     ISSET(A)            ((A) != NULL)
-#define     MAX_BUFFER_SIZE     (1000000)
+#define     WINDOW_LEN          (8)
 
-void populate_match_table(int * table, const char * const needle);
+void search_file(const char * const needle, FILE * infile);
 int kmp_search (const char * const needle, const char * const haystack);
-int read_file(char * source, FILE * file);
+void populate_match_table(int * table, const char * const needle);
+void concat(char ** a, const char * b, const char * const del);
 
 int main(int argc, char ** argv)
 {
-    int idx = -1;
+    int idx = -1; char ch;
     char * needle = NULL, * file_name = NULL; 
-    char haystack[MAX_BUFFER_SIZE]; char ch;
-
     opterr = 0;
+
     while ((ch = getopt (argc, argv, "n:s:")) != -1) {
         switch (ch) {
             case 'n': needle = optarg; break;
             case 's': file_name = optarg; break;
             case '?':
-                if (optopt == 'n' || optopt == 's')
-                    fprintf(stderr,"Option -%c requires an argument.\n",optopt);
-                else
-                    fprintf(stderr,"Unknown option character `\\x%x'.\n",optopt);
-                return 1;
+                      if (optopt == 'n' || optopt == 's')
+                          fprintf(stderr,"Option -%c requires an argument.\n",optopt);
+                      else
+                          fprintf(stderr,"Unknown option character `\\x%x'.\n",optopt);
+                      return 1;
         }
     }
 
@@ -42,12 +43,8 @@ int main(int argc, char ** argv)
             return 0;
         }
 
-        FILE * source_file = fopen(file_name, "r");
-
-        if (read_file(haystack, source_file) == 0) {
-            idx = kmp_search(needle, haystack);
-            printf("%d\n", idx);
-        }
+        FILE * file = fopen(file_name, "r");
+        search_file(needle, file);
     }
 
     return 0;
@@ -94,18 +91,44 @@ void populate_match_table(int * table, const char * const needle)
     }
 }
 
-int read_file(char * source, FILE * file)
+void search_file(const char * const needle, FILE * infile)
 {
-    if (!ISSET(file)) fprintf (stderr, "populate_haystack --- file not initialize");
+    char * window = NULL, * line = NULL;
+    size_t len = 0, read;
+    int line_num = 0;
 
-    size_t len = fread(source, sizeof(char), MAX_BUFFER_SIZE, file);
-    if (!len) {
-        fprintf(stderr, "Error reading file");
-        return -1;
+    if (!ISSET(infile)) exit(EXIT_FAILURE);
+
+    printf("<KA-POW!>\n");
+    while ((read = getline(&line, &len, infile)) != -1) {
+
+        char delim[64]; sprintf(delim, "%d%5s", line_num, "");
+        concat(&window, line, delim);
+
+        if (line_num % WINDOW_LEN == 0 ) {
+            if (kmp_search(needle, window) >= 0) printf("~>\n%s\n", window);
+            memset(window, 0, strlen(window));
+        }
+
+        line_num++;
     }
 
-    source[len++] = '\0';
-    fclose(file);
+    fclose(infile);
+    free(window);
+    free(line);
+}
 
-    return 0;
+void concat(char ** a, const char * b, const char * const del)
+{
+    size_t a_len = *a ? strlen(*a) : 0;
+    size_t b_len = b ? strlen(b) : 0;
+    size_t del_len = del ? strlen(del) : 0;
+    char * res = realloc(*a, a_len + b_len + del_len + 1);
+
+    if (!ISSET(res)) exit(EXIT_FAILURE);
+
+    memcpy(res + a_len, del, del_len);
+    memcpy(res + a_len + del_len, b, b_len);
+    res[a_len + del_len + b_len + 1] = 0;
+    *a = res;
 }
