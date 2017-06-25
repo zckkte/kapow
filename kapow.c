@@ -29,11 +29,11 @@ int main(int argc, char ** argv)
             case 'n': needle = optarg; break;
             case 's': file_name = optarg; break;
             case '?':
-                      if (optopt == 'n' || optopt == 's')
-                          fprintf(stderr,"Option -%c requires an argument.\n",optopt);
-                      else
-                          fprintf(stderr,"Unknown option character `\\x%x'.\n",optopt);
-                      return 1;
+                  if (optopt == 'n' || optopt == 's')
+                      fprintf(stderr,"Option -%c requires an argument.\n",optopt);
+                  else
+                      fprintf(stderr,"Unknown option character `\\x%x'.\n",optopt);
+                  return 1;
         }
     }
 
@@ -60,15 +60,16 @@ int kmp_search (const char * const needle, const char * const haystack)
         if (needle[i] == haystack[m + i]) {
             if (i == strlen(needle) - 1) return m;
             i++;
-        } else {
-            if (partial_match_table[i] > -1) {
-                m = m + i - partial_match_table[i];
-                i = partial_match_table[i];
-            } else {
-                i = 0; m++;
-            }
+            continue;
         }
 
+        if (partial_match_table[i] > -1) {
+            m = m + i - partial_match_table[i];
+            i = partial_match_table[i];
+            continue;
+        }
+
+        i = 0; m++;
     }
 
     return -1;
@@ -83,11 +84,15 @@ void populate_match_table(int * table, const char * const needle)
         if (needle[pos - 1] == needle[cnd]) {
             table[pos] = cnd + 1;
             cnd++; pos++;
-        } else if (cnd > 0) {
-            cnd = table[cnd];
-        } else {
-            table[pos] = 0; pos++;
+            continue;
         }
+
+        if (cnd > 0) {
+            cnd = table[cnd];
+            continue;
+        }
+
+        table[pos] = 0; pos++;
     }
 }
 
